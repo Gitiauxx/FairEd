@@ -60,7 +60,7 @@ class Model(object):
         return np.array([[tp, fp], [fn, tn]])
 
     def compute_auc(self, y, X):
-        return roc_auc_score(y, self.predict_score(X)[:, 1])
+        return roc_auc_score(y, self.predict(X))
 
     def compute_auc_per_group(self, y, X, s):
         y0 = y[s == 0]
@@ -90,6 +90,9 @@ class Model(object):
     def compute_disparate_impact(self, y, s):
         return (y[s==1].sum() / s.sum()  / (y[s==0].sum() / (1 - s).sum()))
 
+    def compute_demographic_parity(self, y, s):
+        return (y[s==1].sum() / s.sum() - y[s==0].sum() / (1 - s).sum())
+
     def compute_equality_opportunity(self, y, ypred, s):
         y0 = y[s == 0]
         y1 = y[s == 1]
@@ -101,3 +104,21 @@ class Model(object):
         tp1 = self.compute_true_positive(y1, ypred1)
 
         return tp0 / y0.sum() - tp1 / y1.sum()
+
+    def compute_equality_odd(self, y, ypred, s):
+        y0 = y[s == 0]
+        y1 = y[s == 1]
+
+        ypred0 = ypred[s == 0]
+        ypred1 = ypred[s == 1]
+
+        tp0 = self.compute_true_positive(y0, ypred0) / y0.sum()
+        tp1 = self.compute_true_positive(y1, ypred1) / y1.sum()
+
+        fp0 = self.compute_false_positive(y0, ypred0) / (1 - y0).sum()
+        fp1 = self.compute_false_positive(y1, ypred1) / (1 - y1).sum()
+
+        kl1 = tp1 * np.log(tp1 / tp0) + (1 - tp1) * np.log( (1 - tp1) / (1 - tp0))
+        kl0 = fp1 * np.log(fp1 / fp0) + (1 - fp1) * np.log((1 - fp1) / (1 - fp0))
+
+        return kl1 * y.sum() / y.shape[0] + kl0 * (1 - y).sum() / y.shape[0]
